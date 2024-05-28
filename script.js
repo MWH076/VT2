@@ -152,3 +152,15 @@ function showResultsModal(pollId) {
         })
         .catch(error => console.log(error));
 }
+
+// Function to show polls list and hide other sections
+function showPolls() {
+    document.getElementById('polls-list').style.display = 'block';
+    document.getElementById('create-poll').style.display = 'none';
+}
+
+// Function to show create poll form and hide other sections
+function showCreatePoll() {
+    document.getElementById('polls-list').style.display = 'none';
+    document.getElementById('create-poll').style.display = 'block';
+}
