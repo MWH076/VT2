@@ -77,19 +77,30 @@ function loadPolls() {
 }
 
 function vote(pollId, option) {
+    const user = auth.currentUser;
+    const userRef = db.collection('users').doc(user.uid);
     const pollRef = db.collection('polls').doc(pollId);
-    db.runTransaction(transaction => {
-        return transaction.get(pollRef).then(doc => {
-            if (!doc.exists) {
-                throw 'Poll does not exist!';
-            }
-            const poll = doc.data();
-            poll.options[option]++;
-            poll.total++;
-            transaction.update(pollRef, poll);
-        });
-    }).then(() => {
-        loadPolls();
+    const votedPollRef = userRef.collection('votedPolls').doc(pollId);
+
+    votedPollRef.get().then(doc => {
+        if (doc.exists) {
+            alert('You have already voted in this poll.');
+        } else {
+            return db.runTransaction(transaction => {
+                return transaction.get(pollRef).then(doc => {
+                    if (!doc.exists) {
+                        throw 'Poll does not exist!';
+                    }
+                    const poll = doc.data();
+                    poll.options[option]++;
+                    poll.total++;
+                    transaction.update(pollRef, poll);
+                    transaction.set(votedPollRef, { voted: true });
+                });
+            }).then(() => {
+                loadPolls();
+            }).catch(error => console.log(error));
+        }
     }).catch(error => console.log(error));
 }
 
