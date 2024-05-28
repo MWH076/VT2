@@ -14,15 +14,6 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-let pollData = {
-    Blue: 0,
-    Red: 0,
-    total: 0
-};
-
-// Set up Google sign-in
-const provider = new firebase.auth.GoogleAuthProvider();
-
 document.getElementById('login-button').innerHTML = '<button onclick="signIn()">Login with Google</button>';
 document.getElementById('logout-button').addEventListener('click', signOut);
 
@@ -31,7 +22,7 @@ auth.onAuthStateChanged(user => {
         document.getElementById('user-name').innerText = `Welcome, ${user.displayName}`;
         document.getElementById('login-button').style.display = 'none';
         document.getElementById('content').style.display = 'block';
-        loadPollData();
+        loadPolls();
     } else {
         document.getElementById('login-button').style.display = 'block';
         document.getElementById('content').style.display = 'none';
@@ -39,46 +30,86 @@ auth.onAuthStateChanged(user => {
 });
 
 function signIn() {
-    auth.signInWithPopup(provider).catch(error => console.log(error));
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(error => console.log(error));
 }
 
 function signOut() {
     auth.signOut().catch(error => console.log(error));
 }
 
-function loadPollData() {
-    db.collection('poll').doc('results').get().then(doc => {
+function createPoll() {
+    const title = document.getElementById('poll-title').value;
+    const option1 = document.getElementById('poll-option1').value;
+    const option2 = document.getElementById('poll-option2').value;
+
+    if (title && option1 && option2) {
+        db.collection('polls').add({
+            title: title,
+            options: {
+                [option1]: 0,
+                [option2]: 0
+            },
+            total: 0
+        }).then(() => {
+            loadPolls();
+        }).catch(error => console.log(error));
+    } else {
+        alert('Please fill in all fields');
+    }
+}
+
+function loadPolls() {
+    const pollsList = document.getElementById('polls');
+    pollsList.innerHTML = '';
+    db.collection('polls').get().then(querySnapshot => {
+        querySnapshot.forEach(doc => {
+            const poll = doc.data();
+            const pollItem = document.createElement('li');
+            pollItem.innerHTML = `
+                <strong>${poll.title}</strong>
+                <button onclick="vote('${doc.id}', '${Object.keys(poll.options)[0]}')">${Object.keys(poll.options)[0]}</button>
+                <button onclick="vote('${doc.id}', '${Object.keys(poll.options)[1]}')">${Object.keys(poll.options)[1]}</button>
+                <button onclick="showResults('${doc.id}')">Show Results</button>
+            `;
+            pollsList.appendChild(pollItem);
+        });
+    }).catch(error => console.log(error));
+}
+
+function vote(pollId, option) {
+    const pollRef = db.collection('polls').doc(pollId);
+    db.runTransaction(transaction => {
+        return transaction.get(pollRef).then(doc => {
+            if (!doc.exists) {
+                throw 'Poll does not exist!';
+            }
+            const poll = doc.data();
+            poll.options[option]++;
+            poll.total++;
+            transaction.update(pollRef, poll);
+        });
+    }).then(() => {
+        loadPolls();
+    }).catch(error => console.log(error));
+}
+
+function showResults(pollId) {
+    const pollRef = db.collection('polls').doc(pollId);
+    pollRef.get().then(doc => {
         if (doc.exists) {
-            pollData = doc.data();
-            updateResults();
+            const poll = doc.data();
+            let resultsHtml = `<h3>Results for: ${poll.title}</h3>`;
+            Object.keys(poll.options).forEach(option => {
+                const percentage = ((poll.options[option] / poll.total) * 100).toFixed(2);
+                resultsHtml += `
+                    <div>${option}: ${percentage}% (${poll.options[option]} votes)</div>
+                    <div style="width: ${percentage}%; background-color: lightblue; height: 20px;"></div>
+                `;
+            });
+            resultsHtml += `<p>Total votes: ${poll.total}</p>`;
+            document.getElementById('polls').innerHTML = resultsHtml;
+        } else {
+            console.log('No such document!');
         }
     }).catch(error => console.log(error));
-}
-
-function vote(option) {
-    if (option === 'Blue') {
-        pollData.Blue++;
-    } else if (option === 'Red') {
-        pollData.Red++;
-    }
-    pollData.total++;
-    updatePollData();
-    document.getElementById('poll').style.display = 'none';
-    document.getElementById('results').style.display = 'block';
-}
-
-function updatePollData() {
-    db.collection('poll').doc('results').set(pollData).then(() => {
-        updateResults();
-    }).catch(error => console.log(error));
-}
-
-function updateResults() {
-    const bluePercentage = (pollData.Blue / pollData.total) * 100;
-    const redPercentage = (pollData.Red / pollData.total) * 100;
-
-    document.getElementById('blue-bar').style.width = `${bluePercentage}%`;
-    document.getElementById('red-bar').style.width = `${redPercentage}%`;
-
-    document.getElementById('total-votes').innerText = pollData.total;
 }
