@@ -1,0 +1,42 @@
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+}
+
+#g-signin2 {
+    margin-top: 20%;
+}
+
+#content {
+    margin-top: 20px;
+}
+
+button {
+    padding: 10px 20px;
+    margin: 10px;
+    font-size: 16px;
+}
+
+#results {
+    margin-top: 20px;
+}
+
+#blue-bar,
+#red-bar {
+    height: 20px;
+    background-color: lightgrey;
+    margin: 10px 0;
+}
+
+#blue-bar {
+    width: 0;
+    background-color: blue;
+}
+
+#red-bar {
+    width: 0;
+    background-color: red;
+}

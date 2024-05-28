@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poll Website</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <!-- Add Firebase products that you want to use -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+    <script src="script.js" defer></script>
+</head>
+
+<body>
+    <div id="login-button"></div>
+    <div id="content" style="display:none;">
+        <div id="user-info">
+            <p id="user-name"></p>
+            <button id="logout-button">Logout</button>
+        </div>
+        <div id="poll">
+            <h3>Choose your favorite color:</h3>
+            <button onclick="vote('Blue')">Blue</button>
+            <button onclick="vote('Red')">Red</button>
+        </div>
+        <div id="results" style="display:none;">
+            <h3>Poll Results</h3>
+            <div id="blue-bar"></div>
+            <div id="red-bar"></div>
+            <p>Total votes: <span id="total-votes"></span></p>
+        </div>
+    </div>
+</body>
+
+</html>
