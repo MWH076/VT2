@@ -14,7 +14,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-document.getElementById('login-button').innerHTML = '<button onclick="signIn()">Login with Google</button>';
+document.getElementById('login-button').innerHTML = '<button class="btn btn-primary" onclick="signIn()">Login with Google</button>';
 document.getElementById('logout-button').addEventListener('click', signOut);
 
 auth.onAuthStateChanged(user => {
@@ -65,11 +65,14 @@ function loadPolls() {
         querySnapshot.forEach(doc => {
             const poll = doc.data();
             const pollItem = document.createElement('li');
+            pollItem.className = 'list-group-item d-flex justify-content-between align-items-center';
             pollItem.innerHTML = `
-                <strong>${poll.title}</strong>
-                <button onclick="vote('${doc.id}', '${Object.keys(poll.options)[0]}')">${Object.keys(poll.options)[0]}</button>
-                <button onclick="vote('${doc.id}', '${Object.keys(poll.options)[1]}')">${Object.keys(poll.options)[1]}</button>
-                <button onclick="showResults('${doc.id}')">Show Results</button>
+                <span><strong>${poll.title}</strong></span>
+                <div>
+                    <button class="btn btn-outline-primary btn-sm" onclick="vote('${doc.id}', '${Object.keys(poll.options)[0]}')">${Object.keys(poll.options)[0]}</button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="vote('${doc.id}', '${Object.keys(ppoll.options)[1]}')">${Object.keys(poll.options)[1]}</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="showResults('${doc.id}')">Show Results</button>
+                </div>
             `;
             pollsList.appendChild(pollItem);
         });
@@ -114,7 +117,9 @@ function showResults(pollId) {
                 const percentage = ((poll.options[option] / poll.total) * 100).toFixed(2);
                 resultsHtml += `
                     <div>${option}: ${percentage}% (${poll.options[option]} votes)</div>
-                    <div style="width: ${percentage}%; background-color: lightblue; height: 20px;"></div>
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" style="width: ${percentage}%" aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
                 `;
             });
             resultsHtml += `<p>Total votes: ${poll.total}</p>`;
