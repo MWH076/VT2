@@ -14,12 +14,12 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-document.getElementById('login-button').innerHTML = '<button class="btn btn-primary" onclick="signIn()">Login with Google</button>';
+document.getElementById('login-button').innerHTML = '<button class="btn btn-primary" onclick="signIn()">Login</button>';
 document.getElementById('logout-button').addEventListener('click', signOut);
 
 auth.onAuthStateChanged(user => {
     if (user) {
-        document.getElementById('user-name').innerText = `Welcome, ${user.displayName}`;
+        document.getElementById('user-name').innerText = `Signed in as ${user.displayName}`;
         document.getElementById('login-button').style.display = 'none';
         document.getElementById('content').style.display = 'block';
         loadPolls();
@@ -39,20 +39,22 @@ function signOut() {
 
 function createPoll() {
     const title = document.getElementById('poll-title').value;
-    const option1 = document.getElementById('poll-option1').value;
-    const option2 = document.getElementById('poll-option2').value;
+    const options = Array.from(document.getElementsByClassName('poll-option')).map(input => input.value);
 
-    if (title && option1 && option2) {
-        db.collection('polls').add({
+    if (title && options.every(option => option.trim() !== '')) {
+        const pollData = {
             title: title,
-            options: {
-                [option1]: 0,
-                [option2]: 0
-            },
-            total: 0
-        }).then(() => {
-            loadPolls();
-        }).catch(error => console.log(error));
+            options: {}
+        };
+        options.forEach(option => {
+            pollData.options[option] = 0;
+        });
+
+        db.collection('polls').add(pollData)
+            .then(() => {
+                loadPolls();
+            })
+            .catch(error => console.log(error));
     } else {
         alert('Please fill in all fields');
     }
@@ -61,71 +63,92 @@ function createPoll() {
 function loadPolls() {
     const pollsList = document.getElementById('polls');
     pollsList.innerHTML = '';
-    db.collection('polls').get().then(querySnapshot => {
-        querySnapshot.forEach(doc => {
-            const poll = doc.data();
-            const pollItem = document.createElement('li');
-            pollItem.className = 'list-group-item d-flex justify-content-between align-items-center';
-            pollItem.innerHTML = `
-                <span><strong>${poll.title}</strong></span>
-                <div>
-                    <button class="btn btn-outline-primary btn-sm" onclick="vote('${doc.id}', '${Object.keys(poll.options)[0]}')">${Object.keys(poll.options)[0]}</button>
-                    <button class="btn btn-outline-primary btn-sm" onclick="vote('${doc.id}', '${Object.keys(ppoll.options)[1]}')">${Object.keys(poll.options)[1]}</button>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="showResults('${doc.id}')">Show Results</button>
-                </div>
-            `;
-            pollsList.appendChild(pollItem);
-        });
-    }).catch(error => console.log(error));
+    db.collection('polls').get()
+        .then(querySnapshot => {
+            querySnapshot.forEach(doc => {
+                const poll = doc.data();
+                const pollItem = document.createElement('li');
+                pollItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                pollItem.innerHTML = `
+                    <span><strong>${poll.title}</strong></span>
+                    <div>
+                        ${Object.keys(poll.options).map(option => `
+                            <button class="btn btn-outline-primary btn-sm" onclick="vote('${doc.id}', '${option}')">${option}</button>
+                        `).join('')}
+                        <button class="btn btn-outline-secondary btn-sm" onclick="showResultsModal('${doc.id}')">Show Results</button>
+                    </div>
+                `;
+                pollsList.appendChild(pollItem);
+            });
+        })
+        .catch(error => console.log(error));
 }
 
 function vote(pollId, option) {
     const user = auth.currentUser;
+    if (!user) {
+        alert('Please sign in to vote');
+        return;
+    }
+
     const userRef = db.collection('users').doc(user.uid);
     const pollRef = db.collection('polls').doc(pollId);
     const votedPollRef = userRef.collection('votedPolls').doc(pollId);
 
-    votedPollRef.get().then(doc => {
-        if (doc.exists) {
-            alert('You have already voted in this poll.');
-        } else {
-            return db.runTransaction(transaction => {
-                return transaction.get(pollRef).then(doc => {
-                    if (!doc.exists) {
-                        throw 'Poll does not exist!';
-                    }
-                    const poll = doc.data();
-                    poll.options[option]++;
-                    poll.total++;
-                    transaction.update(pollRef, poll);
-                    transaction.set(votedPollRef, { voted: true });
-                });
-            }).then(() => {
-                loadPolls();
-            }).catch(error => console.log(error));
-        }
-    }).catch(error => console.log(error));
+    votedPollRef.get()
+        .then(doc => {
+            if (doc.exists) {
+                alert('You have already voted in this poll.');
+            } else {
+                db.runTransaction(transaction => {
+                    return transaction.get(pollRef)
+                        .then(doc => {
+                            if (!doc.exists) {
+                                throw 'Poll does not exist!';
+                            }
+                            const poll = doc.data();
+                            poll.options[option]++;
+                            poll.total++;
+                            transaction.update(pollRef, poll);
+                            transaction.set(votedPollRef, { voted: true });
+                        });
+                })
+                    .then(() => {
+                        loadPolls();
+                    })
+                    .catch(error => console.log(error));
+            }
+        })
+        .catch(error => console.log(error));
 }
 
-function showResults(pollId) {
+function showResultsModal(pollId) {
+    const modalBody = document.getElementById('modal-body');
+    modalBody.innerHTML = '';
+
     const pollRef = db.collection('polls').doc(pollId);
-    pollRef.get().then(doc => {
-        if (doc.exists) {
-            const poll = doc.data();
-            let resultsHtml = `<h3>Results for: ${poll.title}</h3>`;
-            Object.keys(poll.options).forEach(option => {
-                const percentage = ((poll.options[option] / poll.total) * 100).toFixed(2);
-                resultsHtml += `
-                    <div>${option}: ${percentage}% (${poll.options[option]} votes)</div>
-                    <div class="progress">
-                        <div class="progress-bar" role="progressbar" style="width: ${percentage}%" aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                `;
-            });
-            resultsHtml += `<p>Total votes: ${poll.total}</p>`;
-            document.getElementById('polls').innerHTML = resultsHtml;
-        } else {
-            console.log('No such document!');
-        }
-    }).catch(error => console.log(error));
+    pollRef.get()
+        .then(doc => {
+            if (doc.exists) {
+                const poll = doc.data();
+                let resultsHtml = `<h5>${poll.title}</h5>`;
+                Object.keys(poll.options).forEach(option => {
+                    const percentage = ((poll.options[option] / poll.total) * 100).toFixed(2);
+                    resultsHtml += `
+                        <div>${option}: ${percentage}% (${poll.options[option]} votes)</div>
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" style="width: ${percentage}%" aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    `;
+                });
+                resultsHtml += `<p>Total votes: ${poll.total}</p>`;
+                modalBody.innerHTML = resultsHtml;
+
+                const resultsModal = new bootstrap.Modal(document.getElementById('resultsModal'));
+                resultsModal.show();
+            } else {
+                console.log('No such document!');
+            }
+        })
+        .catch(error => console.log(error));
 }
